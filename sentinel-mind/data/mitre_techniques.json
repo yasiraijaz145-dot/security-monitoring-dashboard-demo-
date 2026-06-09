@@ -1,0 +1,22 @@
+{
+  "tactics": [
+    {"id":"TA0001","name":"Initial Access"},
+    {"id":"TA0002","name":"Execution"},
+    {"id":"TA0003","name":"Persistence"},
+    {"id":"TA0006","name":"Credential Access"},
+    {"id":"TA0007","name":"Discovery"},
+    {"id":"TA0008","name":"Lateral Movement"},
+    {"id":"TA0010","name":"Exfiltration"},
+    {"id":"TA0011","name":"Command and Control"}
+  ],
+  "techniques": [
+    {"id":"T1110","name":"Brute Force","tactic":"TA0006","severity":"high"},
+    {"id":"T1046","name":"Network Service Discovery","tactic":"TA0007","severity":"medium"},
+    {"id":"T1041","name":"Exfiltration Over C2 Channel","tactic":"TA0010","severity":"critical"},
+    {"id":"T1071","name":"Application Layer Protocol","tactic":"TA0011","severity":"high"},
+    {"id":"T1021","name":"Remote Services","tactic":"TA0008","severity":"high"},
+    {"id":"T1078","name":"Valid Accounts","tactic":"TA0001","severity":"high"},
+    {"id":"T1105","name":"Ingress Tool Transfer","tactic":"TA0011","severity":"medium"},
+    {"id":"T1018","name":"Remote System Discovery","tactic":"TA0007","severity":"medium"}
+  ]
+}
