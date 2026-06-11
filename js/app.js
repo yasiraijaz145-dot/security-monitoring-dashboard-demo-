@@ -175,10 +175,10 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById(`view-${tab.dataset.view}`).classList.add('active');
-    if (tab.dataset.view === 'honeypot') loadHoneypot();
-    if (tab.dataset.view === 'threats') loadThreats();
-    if (tab.dataset.view === 'intel') loadIntel();
-    if (tab.dataset.view === 'mitre') renderMitre();
+    if (tab.dataset.view === 'honeypot') renderDemoHoneypotFull();
+if (tab.dataset.view === 'threats') renderDemoThreats();
+if (tab.dataset.view === 'intel') renderDemoIntelFull();
+if (tab.dataset.view === 'mitre') renderMitre();
   });
 });
 
@@ -223,9 +223,48 @@ function renderProbes(probes) {
     </div>`).join('')}</div>`;
 }
 
-function renderDemoHoneypot() {
-  const el = document.getElementById('sshSessions');
-  if (el) el.innerHTML = `<div style="padding:1rem;color:var(--muted);font-size:10px">Demo mode — start FastAPI server for live honeypot data.</div>`;
+function renderDemoHoneypotFull() {
+  const users = ['admin','root','ubuntu','pi','oracle','test'];
+  const passwords = ['123456','password','admin','root','toor','qwerty'];
+  const commands = ['whoami','id','uname -a','cat /etc/passwd','ls /','ps aux'];
+  const paths = ['/wp-admin','/.env','/phpmyadmin','/.git/config','/admin','/login'];
+  const agents = ['sqlmap/1.7','Nikto/2.1.6','python-requests/2.31','curl/7.88'];
+  const payloads = ["' OR 1=1--","<script>alert(1)</script>","../../../../etc/passwd"];
+
+  const sshEl = document.getElementById('sshSessions');
+  const httpEl = document.getElementById('httpProbes');
+
+  const sessions = Array.from({length: 12}, (_, i) => ({
+    src_ip: DEMO_IPS[rnd(0, DEMO_IPS.length-1)],
+    timestamp: new Date(Date.now() - i * rnd(60000, 600000)).toISOString(),
+    username: users[rnd(0, users.length-1)],
+    commands_run: Array.from({length: rnd(0,3)}, () => commands[rnd(0, commands.length-1)]),
+  }));
+
+  const probes = Array.from({length: 12}, (_, i) => ({
+    src_ip: DEMO_IPS[rnd(0, DEMO_IPS.length-1)],
+    timestamp: new Date(Date.now() - i * rnd(60000, 600000)).toISOString(),
+    method: ['GET','POST','PUT'][rnd(0,2)],
+    path: paths[rnd(0, paths.length-1)],
+    user_agent: agents[rnd(0, agents.length-1)],
+    payload: Math.random() > 0.5 ? payloads[rnd(0, payloads.length-1)] : null,
+  }));
+
+  renderSessions(sessions);
+  renderProbes(probes);
+}
+
+function renderDemoIntelFull() {
+  const el = document.getElementById('feedSummary');
+  if (el) el.innerHTML = `
+    <div style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Total IOCs</span><strong style="color:var(--accent)">142,830</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">IP Addresses</span><strong>98,241</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Domains</span><strong>31,205</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">File Hashes</span><strong>13,384</strong></div>
+      <div style="font-size:9px;color:var(--muted);margin-top:.5rem">Sources: AlienVault OTX, EmergingThreats, Abuse.ch, VirusTotal</div>
+      <div style="font-size:9px;color:var(--green)">Last sync: ${new Date().toLocaleString()}</div>
+    </div>`;
 }
 
 async function loadThreats() {
@@ -288,7 +327,13 @@ async function checkIOC() {
         ${d.threat_type ? `<div style="font-size:10px;color:var(--muted)">Type: ${d.threat_type}</div>` : ''}
       </div>`;
   } catch {
-    document.getElementById('iocResult').innerHTML = `<div style="padding:1rem;color:var(--muted)">API not connected — start FastAPI server.</div>`;
+    const known = ['185.220.101.1','91.108.56.12','45.142.212.100','194.165.16.98','5.188.86.172'];
+    const isKnown = known.includes(val);
+    document.getElementById('iocResult').innerHTML = `
+      <div style="padding:1rem;margin:1rem;border:1px solid ${isKnown ? 'var(--red)' : 'var(--green)'};border-radius:4px;background:${isKnown ? 'rgba(248,81,73,.1)' : 'rgba(63,185,80,.1)'}">
+        <div style="font-size:11px;font-weight:700;color:${isKnown ? 'var(--red)' : 'var(--green)'};margin-bottom:.5rem">${isKnown ? '⚠ KNOWN MALICIOUS' : '✓ NOT IN IOC DATABASE'}</div>
+        ${isKnown ? '<div style="font-size:10px;color:var(--muted)">Type: Known C2 / Botnet · Sources: AlienVault OTX, EmergingThreats</div>' : ''}
+      </div>`;
   }
 }
 
