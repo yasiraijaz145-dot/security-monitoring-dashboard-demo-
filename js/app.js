@@ -6,6 +6,7 @@ const DEMO_STAGES = ['Recon','Recon','Delivery','Exploit','C2','Exfil','Install'
 
 let smEvents = [];
 let activeFilter = 'all';
+let blockedIPs = new Set(JSON.parse(localStorage.getItem('sm_blocked') || '[]'));
 
 function rnd(a, b) { return Math.floor(Math.random() * (b - a + 1) + a); }
 
@@ -42,6 +43,7 @@ function addManualEvent(ev) {
 
 function showAlertBanner(ev) {
   const b = document.getElementById('alertBanner');
+  if (!b) return;
   b.style.display = 'block';
   b.innerHTML = `⚠ ${ev.severity} severity event from <strong>${ev.ip}</strong> — ${ev.type}`;
   clearTimeout(b._timer);
@@ -105,6 +107,8 @@ function renderKPIs() {
   document.getElementById('kpi-attackers').textContent = high;
   document.getElementById('kpi-detect').textContent = unique;
   document.getElementById('kpi-mttd').textContent = mttd + 'ms';
+  const bc = document.getElementById('blockedCount');
+  if (bc) bc.textContent = blockedIPs.size + ' blocked';
 }
 
 function renderKillChain() {
@@ -137,11 +141,16 @@ function renderTable() {
   }
   empty.style.display = 'none';
   tbody.innerHTML = filtered.map(e => {
+    const count = smEvents.filter(x => x.ip === e.ip).length;
     const sc = { Critical:'sev-critical', High:'sev-high', Medium:'sev-medium', Low:'sev-low' }[e.severity] || 'sev-low';
     return `<tr>
-      <td style="padding:.55rem 1rem;font-size:11px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--muted)">${e.timestamp}</td>
+      <td style="padding:.55rem 1rem;font-size:11px;border-bottom:1px solid var(--border);color:var(--muted)">${e.timestamp}</td>
       <td style="padding:.55rem 1rem;font-size:11px;border-bottom:1px solid var(--border);color:var(--text)">${e.type}</td>
-      <td style="padding:.55rem 1rem;font-size:11px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--accent)">${e.ip}</td>
+      <td style="padding:.55rem 1rem;font-size:11px;border-bottom:1px solid var(--border);color:var(--accent)">
+        ${e.ip}
+        ${count > 2 ? `<span style="margin-left:.4rem;background:rgba(248,81,73,.2);color:var(--red);font-size:8px;padding:.1rem .35rem;border-radius:3px">${count}x</span>` : ''}
+        ${blockedIPs.has(e.ip) ? `<span style="margin-left:.4rem;background:rgba(248,81,73,.2);color:var(--red);font-size:8px;padding:.1rem .35rem;border-radius:3px">BLOCKED</span>` : ''}
+      </td>
       <td style="padding:.55rem 1rem;font-size:11px;border-bottom:1px solid var(--border)"><span class="${sc}">${e.severity}</span></td>
     </tr>`;
   }).join('');
@@ -164,8 +173,50 @@ function renderFeed() {
         <span class="event-tech">${techName}</span>
       </div>
       <span class="risk-badge risk-${ev.severity.toUpperCase()}">${ev.severity.toUpperCase()}</span>
+      <button onclick="blockIP('${ev.ip}')" style="background:rgba(248,81,73,.15);border:1px solid var(--red);color:var(--red);font-family:inherit;font-size:9px;padding:.2rem .5rem;border-radius:3px;cursor:pointer;">BLOCK</button>
     </div>`;
   }).join('');
+}
+
+function blockIP(ip) {
+  blockedIPs.add(ip);
+  localStorage.setItem('sm_blocked', JSON.stringify([...blockedIPs]));
+  showAlertBanner({severity: 'High', ip, type: 'IP BLOCKED'});
+  renderBlocklist();
+  renderFeed();
+}
+
+function unblockIP(ip) {
+  blockedIPs.delete(ip);
+  localStorage.setItem('sm_blocked', JSON.stringify([...blockedIPs]));
+  renderBlocklist();
+  renderFeed();
+}
+
+function renderBlocklist() {
+  const el = document.getElementById('blocklistPanel');
+  if (!el) return;
+  const bc = document.getElementById('blockedCount');
+  if (bc) bc.textContent = blockedIPs.size + ' blocked';
+  if (!blockedIPs.size) {
+    el.innerHTML = '<div style="padding:1rem;color:var(--muted);font-size:10px">No IPs blocked yet. Click BLOCK on any event.</div>';
+    return;
+  }
+  el.innerHTML = [...blockedIPs].map(ip => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.6rem 1rem;border-bottom:1px solid var(--border)">
+      <span style="font-family:monospace;font-size:11px;color:var(--red)">🚫 ${ip}</span>
+      <button onclick="unblockIP('${ip}')" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:9px;padding:.2rem .5rem;border-radius:3px;cursor:pointer;">UNBLOCK</button>
+    </div>`).join('');
+}
+
+function exportCSV() {
+  const rows = [['Timestamp','Type','IP','Severity','Stage']];
+  smEvents.forEach(e => rows.push([e.timestamp, e.type, e.ip, e.severity, e.stage]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = `sentinelmind_${getNow().replace(/ /g,'_')}.csv`;
+  a.click();
 }
 
 // Tab navigation
@@ -176,24 +227,14 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     document.getElementById(`view-${tab.dataset.view}`).classList.add('active');
     if (tab.dataset.view === 'honeypot') renderDemoHoneypotFull();
-if (tab.dataset.view === 'threats') renderDemoThreats();
-if (tab.dataset.view === 'intel') renderDemoIntelFull();
-if (tab.dataset.view === 'mitre') renderMitre();
+    if (tab.dataset.view === 'threats') renderDemoThreats();
+    if (tab.dataset.view === 'intel') renderDemoIntelFull();
+    if (tab.dataset.view === 'mitre') renderMitre();
+    if (tab.dataset.view === 'blocklist') renderBlocklist();
   });
 });
 
 const API = window.location.origin;
-
-async function loadHoneypot() {
-  try {
-    const [ssh, http] = await Promise.all([
-      fetch(`${API}/api/honeypot/sessions`).then(r => r.json()),
-      fetch(`${API}/api/honeypot/http-probes`).then(r => r.json()),
-    ]);
-    renderSessions(ssh.sessions);
-    renderProbes(http.probes);
-  } catch { renderDemoHoneypot(); }
-}
 
 function renderSessions(sessions) {
   const el = document.getElementById('sshSessions');
@@ -225,14 +266,10 @@ function renderProbes(probes) {
 
 function renderDemoHoneypotFull() {
   const users = ['admin','root','ubuntu','pi','oracle','test'];
-  const passwords = ['123456','password','admin','root','toor','qwerty'];
   const commands = ['whoami','id','uname -a','cat /etc/passwd','ls /','ps aux'];
   const paths = ['/wp-admin','/.env','/phpmyadmin','/.git/config','/admin','/login'];
   const agents = ['sqlmap/1.7','Nikto/2.1.6','python-requests/2.31','curl/7.88'];
   const payloads = ["' OR 1=1--","<script>alert(1)</script>","../../../../etc/passwd"];
-
-  const sshEl = document.getElementById('sshSessions');
-  const httpEl = document.getElementById('httpProbes');
 
   const sessions = Array.from({length: 12}, (_, i) => ({
     src_ip: DEMO_IPS[rnd(0, DEMO_IPS.length-1)],
@@ -267,26 +304,32 @@ function renderDemoIntelFull() {
     </div>`;
 }
 
-async function loadThreats() {
-  try {
-    const r = await fetch(`${API}/api/threats/active`);
-    const d = await r.json();
-    renderThreats(d.threats);
-  } catch { renderDemoThreats(); }
-}
-
 function renderThreats(threats) {
   const el = document.getElementById('threatsList');
   if (!el) return;
-  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:1px">${threats.map(t => `
-    <div style="padding:1.25rem;border-bottom:1px solid var(--border);display:grid;grid-template-columns:80px 1fr auto;gap:1rem;align-items:center">
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:1px">${threats.map(t => {
+    const status = localStorage.getItem(`thr_status_${t.id}`) || 'OPEN';
+    const statusColor = {OPEN:'var(--red)',INVESTIGATING:'var(--yellow)',RESOLVED:'var(--green)'}[status];
+    return `
+    <div style="padding:1.25rem;border-bottom:1px solid var(--border);display:grid;grid-template-columns:80px 1fr auto auto;gap:1rem;align-items:center">
       <span class="risk-badge risk-${t.severity}">${t.severity}</span>
       <div>
         <div style="font-size:12px;color:var(--text);font-weight:600;margin-bottom:.3rem">${t.name}</div>
         <div style="font-size:9px;color:var(--muted)">Stage: ${t.stage} · IOCs: ${t.iocs} · ${t.techniques.join(', ')}</div>
       </div>
+      <select onchange="updateThreatStatus('${t.id}', this.value)" style="background:var(--bg);border:1px solid var(--border);color:${statusColor};font-family:inherit;font-size:9px;padding:.3rem;border-radius:3px;cursor:pointer">
+        <option ${status==='OPEN'?'selected':''}>OPEN</option>
+        <option ${status==='INVESTIGATING'?'selected':''}>INVESTIGATING</option>
+        <option ${status==='RESOLVED'?'selected':''}>RESOLVED</option>
+      </select>
       <div style="font-size:9px;color:var(--purple)">${t.id}</div>
-    </div>`).join('')}</div>`;
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function updateThreatStatus(id, status) {
+  localStorage.setItem(`thr_status_${id}`, status);
+  renderDemoThreats();
 }
 
 function renderDemoThreats() {
@@ -295,24 +338,6 @@ function renderDemoThreats() {
     {id:'THR-002',name:'Cobalt Strike Beacon',severity:'HIGH',stage:'C2',iocs:7,techniques:['T1105','T1021']},
     {id:'THR-003',name:'SSH Brute Force Campaign',severity:'MEDIUM',stage:'Initial Access',iocs:31,techniques:['T1110','T1078']},
   ]);
-}
-
-async function loadIntel() {
-  try {
-    const r = await fetch(`${API}/api/intel/ioc-summary`);
-    const d = await r.json();
-    document.getElementById('feedSummary').innerHTML = `
-      <div style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Total IOCs</span><strong style="color:var(--accent)">${d.total_iocs.toLocaleString()}</strong></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">IP Addresses</span><strong>${d.ips.toLocaleString()}</strong></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Domains</span><strong>${d.domains.toLocaleString()}</strong></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">File Hashes</span><strong>${d.hashes.toLocaleString()}</strong></div>
-        <div style="font-size:9px;color:var(--green);margin-top:.5rem">Last sync: ${new Date(d.last_updated).toLocaleString()}</div>
-      </div>`;
-  } catch {
-    const el = document.getElementById('feedSummary');
-    if (el) el.innerHTML = `<div style="padding:1rem;color:var(--muted);font-size:10px">Start FastAPI server for live intel data.</div>`;
-  }
 }
 
 async function checkIOC() {
@@ -354,6 +379,7 @@ function autoStream() {
     if (ev.severity === 'High' || ev.severity === 'Critical') showAlertBanner(ev);
     renderAll();
     drawTimeline(smEvents);
+    document.title = `[${smEvents.filter(e=>e.severity==='Critical').length} CRITICAL] SentinelMind`;
   }, 1500 + Math.random() * 1500);
 }
 
