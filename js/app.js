@@ -94,6 +94,34 @@ function renderAll() {
   renderKillChain();
   renderTable();
   renderFeed();
+  renderGeoMap();
+}
+
+function renderGeoMap() {
+  const el = document.getElementById('geoGrid');
+  if (!el) return;
+  const countryMap = {};
+  const flags = {'185.220':'🇷🇺','91.108':'🇷🇺','45.142':'🇨🇳','103.75':'🇨🇳','5.188':'🇮🇷','194.165':'🇮🇷','78.128':'🇺🇦','109.70':'🇰🇵'};
+  const names = {'185.220':'Russia','91.108':'Russia','45.142':'China','103.75':'China','5.188':'Iran','194.165':'Iran','78.128':'Ukraine','109.70':'N.Korea'};
+  smEvents.forEach(e => {
+    const prefix = e.ip.split('.').slice(0,2).join('.');
+    const country = names[prefix] || 'Unknown';
+    countryMap[country] = (countryMap[country] || 0) + 1;
+  });
+  if (!Object.keys(countryMap).length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:10px">No data yet</div>';
+    return;
+  }
+  const flagMap = {'Russia':'🇷🇺','China':'🇨🇳','Iran':'🇮🇷','Ukraine':'🇺🇦','N.Korea':'🇰🇵','Unknown':'🌐'};
+  const sorted = Object.entries(countryMap).sort((a,b) => b[1]-a[1]);
+  el.innerHTML = sorted.map(([country, count]) => `
+    <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:4px;min-width:140px">
+      <span style="font-size:18px">${flagMap[country]||'🌐'}</span>
+      <div>
+        <div style="font-size:10px;color:var(--text)">${country}</div>
+        <div style="font-size:9px;color:var(--red)">${count} attacks</div>
+      </div>
+    </div>`).join('');
 }
 
 function renderKPIs() {
