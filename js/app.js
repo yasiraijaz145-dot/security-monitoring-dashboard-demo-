@@ -337,6 +337,28 @@ async function checkIOC() {
   }
 }
 
+function autoStream() {
+  setInterval(() => {
+    const si = rnd(0, DEMO_SEVS.length - 1);
+    const ev = {
+      id: Date.now(),
+      timestamp: getNow(),
+      type: DEMO_TYPES[rnd(0, DEMO_TYPES.length - 1)],
+      ip: DEMO_IPS[rnd(0, DEMO_IPS.length - 1)],
+      severity: DEMO_SEVS[si],
+      stage: DEMO_STAGES[rnd(0, DEMO_STAGES.length - 1)],
+    };
+    smEvents.unshift(ev);
+    if (smEvents.length > 100) smEvents.pop();
+    saveEvents();
+    if (ev.severity === 'High' || ev.severity === 'Critical') showAlertBanner(ev);
+    renderAll();
+    drawTimeline(smEvents);
+  }, 1500 + Math.random() * 1500);
+}
+
 // Init
 loadEvents();
+if (smEvents.length === 0) generateDemoEvents();
 renderAll();
+autoStream();
