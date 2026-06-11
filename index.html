@@ -1,19 +1,19 @@
-S<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SentinelMind — SOC Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
-  <!-- TOP NAV -->
   <div id="infoBanner" style="background:#0d1117;border-bottom:1px solid #1c2333;padding:10px 1.5rem;font-size:11px;color:#484f58;line-height:1.7">
-  <strong style="color:#58a6ff">SentinelMind — demo mode.</strong> Add events using the form below or click <em>Generate Demo Events</em>. All events persist via <code style="background:#1c2333;padding:1px 5px;border-radius:3px">localStorage</code>. To connect real traffic: replace <code style="background:#1c2333;padding:1px 5px;border-radius:3px">loadEvents()</code> in <code style="background:#1c2333;padding:1px 5px;border-radius:3px">js/app.js</code> with a <code style="background:#1c2333;padding:1px 5px;border-radius:3px">fetch('/api/events')</code> call to your FastAPI server.
-</div>
-<div id="alertBanner" style="display:none;position:fixed;top:48px;left:50%;transform:translateX(-50%);z-index:999;background:#3d0000;border:1px solid #f85149;color:#ff9492;padding:10px 24px;border-radius:6px;font-size:12px;font-weight:600;letter-spacing:.04em"></div>
-<nav class="topnav">
+    <strong style="color:#58a6ff">SentinelMind — demo mode.</strong> Add events using the form below or click <em>Generate Demo Events</em>. All events persist via <code style="background:#1c2333;padding:1px 5px;border-radius:3px">localStorage</code>.
+  </div>
+  <div id="alertBanner" style="display:none;position:fixed;top:48px;left:50%;transform:translateX(-50%);z-index:999;background:#3d0000;border:1px solid #f85149;color:#ff9492;padding:10px 24px;border-radius:6px;font-size:12px;font-weight:600;letter-spacing:.04em"></div>
+
+  <nav class="topnav">
     <div class="nav-brand">⬡ SentinelMind</div>
     <div class="nav-status">
       <span class="live-dot"></span> LIVE MONITORING
@@ -24,6 +24,7 @@ S<!DOCTYPE html>
       <button class="tab" data-view="honeypot">Honeypot</button>
       <button class="tab" data-view="mitre">ATT&CK Matrix</button>
       <button class="tab" data-view="intel">Threat Intel</button>
+      <button class="tab" data-view="blocklist">Blocklist</button>
     </div>
   </nav>
 
@@ -36,31 +37,26 @@ S<!DOCTYPE html>
     <div class="kpi"><span class="kpi-num" id="kpi-mttd">0ms</span><span class="kpi-lbl">Avg MTTD</span></div>
   </div>
 
-  <!-- MAIN CONTENT VIEWS -->
   <main class="main-content">
 
     <!-- VIEW: OVERVIEW -->
     <div id="view-overview" class="view active">
       <div class="dash-grid">
-        <!-- Live Event Feed -->
         <div class="panel panel-feed">
           <div class="panel-header">
             <span>Live Event Stream</span>
-            <span class="badge-live">WS</span>
+            <span class="badge-live">LIVE</span>
           </div>
           <div class="event-feed" id="eventFeed"></div>
         </div>
-        <!-- Attack Timeline (canvas) -->
         <div class="panel">
           <div class="panel-header">Attack Timeline</div>
           <canvas id="timelineCanvas"></canvas>
         </div>
-        <!-- Kill Chain Progress -->
         <div class="panel">
           <div class="panel-header">Kill Chain Distribution</div>
           <div class="kill-chain" id="killChain"></div>
         </div>
-        <!-- Geo Heatmap -->
         <div class="panel">
           <div class="panel-header">Attack Origin Map</div>
           <div class="geo-grid" id="geoGrid"></div>
@@ -102,10 +98,11 @@ S<!DOCTYPE html>
             </select>
           </div>
         </div>
-        <div style="padding:0 1rem 1rem;display:flex;gap:.6rem">
-          <button onclick="addManualEvent()" style="background:rgba(88,166,255,.15);border:1px solid var(--accent);color:var(--accent);padding:.45rem 1.1rem;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(88,166,255,.25)'" onmouseout="this.style.background='rgba(88,166,255,.15)'">+ Add Event</button>
-          <button onclick="generateDemoEvents()" style="background:rgba(63,185,80,.1);border:1px solid var(--green);color:var(--green);padding:.45rem 1.1rem;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(63,185,80,.2)'" onmouseout="this.style.background='rgba(63,185,80,.1)'">▶ Generate Demo Events</button>
-          <button onclick="clearAllEvents()" style="background:rgba(248,81,73,.1);border:1px solid var(--red);color:var(--red);padding:.45rem 1.1rem;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(248,81,73,.2)'" onmouseout="this.style.background='rgba(248,81,73,.1)'">✕ Clear Log</button>
+        <div style="padding:0 1rem 1rem;display:flex;gap:.6rem;flex-wrap:wrap">
+          <button onclick="addManualEvent()" style="background:rgba(88,166,255,.15);border:1px solid var(--accent);color:var(--accent);padding:.45rem 1.1rem;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer">+ Add Event</button>
+          <button onclick="generateDemoEvents()" style="background:rgba(63,185,80,.1);border:1px solid var(--green);color:var(--green);padding:.45rem 1.1rem;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer">▶ Generate Demo Events</button>
+          <button onclick="clearAllEvents()" style="background:rgba(248,81,73,.1);border:1px solid var(--red);color:var(--red);padding:.45rem 1.1rem;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer">✕ Clear Log</button>
+          <button onclick="exportCSV()" style="background:rgba(188,140,255,.1);border:1px solid var(--purple);color:var(--purple);padding:.45rem 1.1rem;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer">⬇ Export CSV</button>
         </div>
       </div>
 
@@ -161,14 +158,28 @@ S<!DOCTYPE html>
       <div class="dash-grid">
         <div class="panel">
           <div class="panel-header">IOC Lookup</div>
-          <input id="iocInput" placeholder="Enter IP / hash / domain..." />
-          <button onclick="checkIOC()">Check IOC</button>
+          <input id="iocInput" placeholder="Enter IP / hash / domain..." style="width:calc(100% - 2rem);background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.65rem 1rem;border-radius:4px;font-family:inherit;font-size:11px;outline:none;margin:1rem" />
+          <button onclick="checkIOC()" style="margin:0 1rem 1rem;background:rgba(88,166,255,.15);border:1px solid var(--accent);color:var(--accent);padding:.45rem 1.1rem;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer">Check IOC</button>
           <div id="iocResult"></div>
         </div>
         <div class="panel">
           <div class="panel-header">Feed Summary</div>
           <div id="feedSummary"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- VIEW: BLOCKLIST -->
+    <div id="view-blocklist" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <span>Blocked IPs</span>
+          <span id="blockedCount" style="color:var(--red);font-size:9px">0 blocked</span>
+        </div>
+        <div style="padding:1rem;color:var(--muted);font-size:10px;border-bottom:1px solid var(--border)">
+          IPs blocked here are flagged across the event log. Click <strong style="color:var(--red)">BLOCK</strong> on any event in the Live Event Stream to add an IP.
+        </div>
+        <div id="blocklistPanel"></div>
       </div>
     </div>
 
